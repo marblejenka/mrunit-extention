@@ -16,28 +16,27 @@ import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.Counters;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mrunit.MapReduceDriverBase;
 import org.apache.hadoop.mrunit.types.Pair;
 
+@SuppressWarnings("rawtypes")
 public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
-		extends
-		MapReduceDriverBase<WritableComparable<?>, Writable, K2, V2, K3, V3> {
+		extends MapReduceDriver<WritableComparable, Writable, K2, V2, K3, V3> {
 
 	public static final Log LOG = LogFactory
 			.getLog(MultipleInputsMapReduceDriver.class);
 
-	// private Mapper<WritableComparable<?>, Writable, K2, V2> myMapper;
-	private Map<Mapper<WritableComparable<?>, Writable, K2, V2>, List<Pair<WritableComparable<?>, Writable>>> myMappers;
+	private Map<Mapper<? extends WritableComparable, ? extends Writable, K2, V2>, List<Pair<? extends WritableComparable, ? extends Writable>>> myMappers;
 	private Reducer<K2, V2, K3, V3> myReducer;
 	private Counters counters;
 
 	public MultipleInputsMapReduceDriver(final Reducer<K2, V2, K3, V3> r) {
-		myMappers = new HashMap<Mapper<WritableComparable<?>, Writable, K2, V2>, List<Pair<WritableComparable<?>, Writable>>>();
+		myMappers = new HashMap<Mapper<? extends WritableComparable, ? extends Writable, K2, V2>, List<Pair<? extends WritableComparable, ? extends Writable>>>();
 		myReducer = r;
 		counters = new Counters();
 	}
 
 	public MultipleInputsMapReduceDriver() {
+		myMappers = new HashMap<Mapper<? extends WritableComparable, ? extends Writable, K2, V2>, List<Pair<? extends WritableComparable, ? extends Writable>>>();
 		counters = new Counters();
 	}
 
@@ -47,14 +46,14 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 	// * @param m
 	// * the Mapper instance to use
 	// */
-	// public void setMapper(Mapper<WritableComparable<?>, Writable, K2, V2> m)
+	// public void setMapper(Mapper<WritableComparable, Writable, K2, V2> m)
 	// {
 	// myMapper = m;
 	// }
 	//
 	// /** Sets the Mapper instance to use and returns self for fluent style */
 	// public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withMapper(
-	// Mapper<WritableComparable<?>, Writable, K2, V2> m) {
+	// Mapper<WritableComparable, Writable, K2, V2> m) {
 	// setMapper(m);
 	// return this;
 	// }
@@ -62,7 +61,7 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 	/**
 	 * @return the Mapper object being used by this test
 	 */
-	public Map<Mapper<WritableComparable<?>, Writable, K2, V2>, List<Pair<WritableComparable<?>, Writable>>> getMapperAndInputs() {
+	public Map<Mapper<? extends WritableComparable, ? extends Writable, K2, V2>, List<Pair<? extends WritableComparable, ? extends Writable>>> getMapperAndInputs() {
 		return myMappers;
 	}
 
@@ -119,24 +118,26 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 	}
 
 	@Override
-	public void addInput(Pair<WritableComparable<?>, Writable> input) {
+	public void addInput(Pair<WritableComparable, Writable> input) {
 		throw new UnsupportedOperationException();
 	}
 
 	@Override
-	public void addInput(WritableComparable<?> key, Writable val) {
+	public void addInput(WritableComparable key, Writable val) {
 		throw new UnsupportedOperationException();
 	}
 
 	public void addMapperAndInputs(
-			Mapper<WritableComparable<?>, Writable, K2, V2> mapper,
-			Pair<WritableComparable<?>, Writable>... inputs) {
+			Mapper<? extends WritableComparable, ? extends Writable, K2, V2> mapper,
+			Pair<? extends WritableComparable, ? extends Writable>... inputs) {
 		if (myMappers.containsKey(mapper)) {
 			throw new IllegalStateException(
 					"cannot atatch same mapper class for multiple inputs. this is not hadoop specification. this class has not support same mapper class testcase");
 		}
 
-		myMappers.put(mapper, Arrays.asList(inputs));
+		myMappers
+				.put((Mapper<? extends WritableComparable, ? extends Writable, K2, V2>) mapper,
+						Arrays.asList(inputs));
 	}
 
 	// /**
@@ -147,7 +148,7 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 	// * @return this
 	// */
 	// public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withInput(
-	// WritableComparable<?> key, Writable val) {
+	// WritableComparable key, Writable val) {
 	// addInput(key, val);
 	// return this;
 	// }
@@ -160,8 +161,8 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 	 * @return this
 	 */
 	public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withMapperAndInputs(
-			Mapper<WritableComparable<?>, Writable, K2, V2> mapper,
-			Pair<WritableComparable<?>, Writable>... inputs) {
+			Mapper<WritableComparable, Writable, K2, V2> mapper,
+			Pair<WritableComparable, Writable>... inputs) {
 		addMapperAndInputs(mapper, inputs);
 		return this;
 	}
@@ -217,20 +218,23 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 		return this;
 	}
 
+	@SuppressWarnings("unchecked")
 	public List<Pair<K3, V3>> run() throws IOException {
 
 		List<Pair<K2, V2>> mapOutputs = new ArrayList<Pair<K2, V2>>();
 
 		// run map component
-		for (@SuppressWarnings("rawtypes")
-		Mapper mapper : myMappers.keySet()) {
+		for (Mapper mapper : myMappers.keySet()) {
 			LOG.debug("Running mapper " + mapper.toString() + ")");
-			for (Pair<WritableComparable<?>, Writable> input : myMappers
+			for (Pair<? extends WritableComparable, ? extends Writable> input : myMappers
 					.get(mapper)) {
 				LOG.debug(" Mapping input " + input.toString() + ")");
 				mapOutputs
-						.addAll(new MapDriver<WritableComparable<?>, Writable, K2, V2>()
-								.withInput(input).withCounters(getCounters())
+						.addAll(new MapDriver<WritableComparable, Writable, K2, V2>(
+								mapper)
+								.withInput(
+										(Pair<WritableComparable, Writable>) input)
+								.withCounters(getCounters())
 								.withConfiguration(configuration).run());
 			}
 		}
