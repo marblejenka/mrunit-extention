@@ -18,6 +18,15 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mrunit.types.Pair;
 
+/**
+ * 複数の入力をサポートするMRテストドライバ。
+ * 
+ * 制約
+ * ・同じ型で別のデータソースを受け取るようなMRはテストできない
+ * ・Pipelineと組み合わせる場合、複数のデータソースを受け取ることができるのは、Pipelineの先頭にするこのドライバだけ
+ * 
+ * @author marblejenka
+ */
 @SuppressWarnings("rawtypes")
 public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 		extends MapReduceDriver<WritableComparable, Writable, K2, V2, K3, V3> {

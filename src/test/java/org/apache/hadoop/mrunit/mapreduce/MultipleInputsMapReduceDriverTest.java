@@ -3,8 +3,6 @@ package org.apache.hadoop.mrunit.mapreduce;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.util.List;
 
@@ -33,7 +31,7 @@ public class MultipleInputsMapReduceDriverTest {
 
 		longMapper = new LongToText();
 		textToCustomWritableMapper = new TextToCustomWritable();
-		customWritableReducer = new Reducer<MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable>();
+		customWritableReducer = new Reducer<CustomWritable, CustomWritable, CustomWritable, CustomWritable>();
 	}
 
 	@Test
@@ -80,7 +78,6 @@ public class MultipleInputsMapReduceDriverTest {
 		assertThat(run.size(), is(9));
 	}
 
-	// TODO dose not work with pipeline driver.
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testMultipleInputsPipelineExecution() throws IOException {
@@ -102,11 +99,11 @@ public class MultipleInputsMapReduceDriverTest {
 
 		first.setReducer(textReducer);
 
-		MapReduceDriver<Text, Text, CustomWritable, CustomWritable, CustomWritable, CustomWritable> second = new MapReduceDriver<Text, Text, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable>();
+		MapReduceDriver<Text, Text, CustomWritable, CustomWritable, CustomWritable, CustomWritable> second = new MapReduceDriver<Text, Text, CustomWritable, CustomWritable, CustomWritable, CustomWritable>();
 		second.setMapper(textToCustomWritableMapper);
 		second.setReducer(customWritableReducer);
 		
-		PipelineMapReduceDriver<WritableComparable<?>, Writable, CustomWritable, CustomWritable> pipeline = new PipelineMapReduceDriver<WritableComparable<?>, Writable, MultipleInputsMapReduceDriverTest.CustomWritable, MultipleInputsMapReduceDriverTest.CustomWritable>();
+		PipelineMapReduceDriver<WritableComparable<?>, Writable, CustomWritable, CustomWritable> pipeline = new PipelineMapReduceDriver<WritableComparable<?>, Writable, CustomWritable, CustomWritable>();
 		pipeline.addMapReduce(first);
 		pipeline.addMapReduce(second);
 				
@@ -136,53 +133,5 @@ public class MultipleInputsMapReduceDriverTest {
 				throws IOException, InterruptedException {
 			context.write(new CustomWritable(key), new CustomWritable(value));
 		};
-	}
-
-	public class CustomWritable implements WritableComparable<CustomWritable> {
-		private Text text = new Text();
-
-		public CustomWritable() {
-		}
-
-		public CustomWritable(String text) {
-			set(text);
-		}
-
-		public CustomWritable(Text text) {
-			this.text = text;
-		}
-
-		public Text get() {
-			return text;
-		}
-
-		public void set(String text) {
-			this.text.set(text);
-		}
-
-		@Override
-		public void write(DataOutput out) throws IOException {
-			text.write(out);
-		}
-
-		@Override
-		public void readFields(DataInput in) throws IOException {
-			text.readFields(in);
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			return CustomWritable.class.cast(obj).equals(this);
-		}
-
-		@Override
-		public int hashCode() {
-			return text.hashCode();
-		}
-
-		@Override
-		public int compareTo(CustomWritable other) {
-			return Integer.valueOf(this.hashCode()).compareTo(other.hashCode());
-		}
 	}
 }
