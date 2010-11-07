@@ -40,24 +40,6 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 		counters = new Counters();
 	}
 
-	// /**
-	// * Set the Mapper instance to use with this test driver
-	// *
-	// * @param m
-	// * the Mapper instance to use
-	// */
-	// public void setMapper(Mapper<WritableComparable, Writable, K2, V2> m)
-	// {
-	// myMapper = m;
-	// }
-	//
-	// /** Sets the Mapper instance to use and returns self for fluent style */
-	// public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withMapper(
-	// Mapper<WritableComparable, Writable, K2, V2> m) {
-	// setMapper(m);
-	// return this;
-	// }
-
 	/**
 	 * @return the Mapper object being used by this test
 	 */
@@ -140,19 +122,6 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 						Arrays.asList(inputs));
 	}
 
-	// /**
-	// * Identical to addInput() but returns self for fluent programming style
-	// *
-	// * @param key
-	// * @param val
-	// * @return this
-	// */
-	// public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withInput(
-	// WritableComparable key, Writable val) {
-	// addInput(key, val);
-	// return this;
-	// }
-
 	/**
 	 * Identical to addInput() but returns self for fluent programming style
 	 * 
@@ -191,19 +160,6 @@ public class MultipleInputsMapReduceDriver<K2 extends Comparable<?>, V2, K3, V3>
 		addOutput(key, val);
 		return this;
 	}
-
-	// /**
-	// * Identical to addInputFromString, but with a fluent programming style
-	// *
-	// * @param input
-	// * A string of the form "key \t val". Trims any whitespace.
-	// * @return this
-	// */
-	// public MultipleInputsMapReduceDriver<K2, V2, K3, V3> withInputFromString(
-	// String input) {
-	// addInputFromString(input);
-	// return this;
-	// }
 
 	/**
 	 * Identical to addOutputFromString, but with a fluent programming style
