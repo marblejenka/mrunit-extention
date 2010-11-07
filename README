@@ -3,4 +3,5 @@ this product is extention for MRUnit.
 future
 * provide convenient Factory class for driver, instantiate from org.apache.hadoop.mapreduce.Job 
 * provide PipelineMapReduceDriver for new API
+* provide MultipleInputsMapReduceDriver for new API
 
