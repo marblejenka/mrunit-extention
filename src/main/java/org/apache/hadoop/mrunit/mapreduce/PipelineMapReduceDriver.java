@@ -16,7 +16,46 @@ import org.apache.hadoop.mrunit.TestDriver;
 import org.apache.hadoop.mrunit.types.Pair;
 
 /**
- * Pipeline Driver for new api.
+ * Harness for testing a pipeline of MapReduce jobs. Allows for the linear
+ * chaining of multiple {@link MapReduceDriver}s. The output of one stage of
+ * the pipeline becomes the input of the next.
+ *
+ * <p>This class is designed to make it easy to test complex MapReduce workflows
+ * that involve multiple processing stages. Users can add {@link MapReduceDriver}
+ * instances to the pipeline, provide initial input, and then verify the final
+ * output after all stages have been executed.</p>
+ *
+ * <p>Example usage:</p>
+ * <pre>
+ * {@code
+ * PipelineMapReduceDriver<Text, Text, Text, Text> pipeline =
+ *     new PipelineMapReduceDriver<Text, Text, Text, Text>();
+ *
+ * // Configure first MapReduce job
+ * MapReduceDriver<Text, Text, Text, Text> mr1 =
+ *     new MapReduceDriver<Text, Text, Text, Text>()
+ *         .withMapper(new MyMapper1())
+ *         .withReducer(new MyReducer1());
+ *
+ * // Configure second MapReduce job
+ * MapReduceDriver<Text, Text, Text, Text> mr2 =
+ *     new MapReduceDriver<Text, Text, Text, Text>()
+ *         .withMapper(new MyMapper2())
+ *         .withReducer(new MyReducer2());
+ *
+ * pipeline.addMapReduce(mr1);
+ * pipeline.addMapReduce(mr2);
+ *
+ * pipeline.withInput(new Text("key1"), new Text("value1"));
+ * pipeline.withOutput(new Text("finalKey"), new Text("finalValue"));
+ * pipeline.runTest();
+ * }
+ * </pre>
+ *
+ * @param <K1> The initial input key type for the first Mapper in the pipeline.
+ * @param <V1> The initial input value type for the first Mapper in the pipeline.
+ * @param <K2> The final output key type from the last Reducer in the pipeline.
+ * @param <V2> The final output value type from the last Reducer in the pipeline.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class PipelineMapReduceDriver<K1, V1, K2, V2>
@@ -24,70 +63,107 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
 
   public static final Log LOG = LogFactory.getLog(PipelineMapReduceDriver.class);
 
-//  private List<Pair<Mapper, Reducer>> mapReducePipeline;
-  private List<MapReduceDriver> mapReducePipeline; 
+  private List<MapReduceDriver> mapReducePipeline;
   private List<Pair<K1, V1>> inputList;
   private Counters counters;
-  
+
+  /**
+   * Constructs a PipelineMapReduceDriver with an initial sequence of
+   * MapReduce jobs.
+   *
+   * @param mapReducePipeline A varargs array of {@link MapReduceDriver} instances
+   *                          that make up the initial pipeline.
+   */
   public PipelineMapReduceDriver(final MapReduceDriver... mapReducePipeline) {
+    this.mapReducePipeline = new ArrayList<MapReduceDriver>();
     this.mapReducePipeline.addAll(Arrays.asList(mapReducePipeline));
     this.inputList = new ArrayList<Pair<K1, V1>>();
     this.counters = new Counters();
   }
 
+  /**
+   * Constructs an empty PipelineMapReduceDriver. MapReduce jobs can be added
+   * later using {@link #addMapReduce(MapReduceDriver)} or
+   * {@link #withMapReduce(MapReduceDriver)}.
+   */
   public PipelineMapReduceDriver() {
     this.mapReducePipeline = new ArrayList<MapReduceDriver>();
     this.inputList = new ArrayList<Pair<K1, V1>>();
     this.counters = new Counters();
   }
 
-  /** @return the counters used in this test */
+  /**
+   * Retrieves the {@link Counters} used throughout the execution of the pipeline.
+   * Counters are accumulated across all MapReduce jobs in the pipeline.
+   *
+   * @return The {@link Counters} object containing metrics from the test run.
+   */
   public Counters getCounters() {
     return counters;
   }
 
-  /** Sets the counters object to use for this test.
-   * @param ctrs The counters object to use.
+  /**
+   * Sets the {@link Counters} object to use for this test. This allows for
+   * injecting a specific Counters instance, for example, to pre-populate
+   * counter values or to use a mock Counters object.
+   *
+   * @param ctrs The {@link Counters} object to use.
    */
   public void setCounters(final Counters ctrs) {
     this.counters = ctrs;
   }
 
-  /** Sets the counters to use and returns self for fluent style */
+  /**
+   * Sets the {@link Counters} to use for this test and returns the driver instance
+   * for fluent programming.
+   *
+   * @param ctrs The {@link Counters} object to use.
+   * @return this {@link PipelineMapReduceDriver} instance.
+   */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withCounters(final Counters ctrs) {
     setCounters(ctrs);
     return this;
   }
 
-
-  /** Add a Mapper and Reducer instance to the pipeline to use with this test driver
-   * @param m The Mapper instance to add to the pipeline
-   * @param r The Reducer instance to add to the pipeline
+  /**
+   * Adds a {@link MapReduceDriver} instance, configured with a Mapper and a Reducer,
+   * to the end of the pipeline.
+   *
+   * @param m The {@link Mapper} instance for this stage of the pipeline.
+   * @param r The {@link Reducer} instance for this stage of the pipeline.
    */
   public void addMapReduce(Mapper m, Reducer r) {
     addMapReduce(new MapReduceDriver(m, r));
   }
 
-  /** Add a Mapper and Reducer instance to the pipeline to use with this test driver
-   * @param p The Mapper and Reducer instances to add to the pipeline
+  /**
+   * Adds a pre-configured {@link MapReduceDriver} instance to the end of the pipeline.
+   *
+   * @param driver The {@link MapReduceDriver} instance to add.
    */
   public void addMapReduce(MapReduceDriver driver) {
     this.mapReducePipeline.add(driver);
   }
 
-  /** Add a Mapper and Reducer instance to the pipeline to use with this test driver
-   * using fluent style
-   * @param m The Mapper instance to use
-   * @param r The Reducer instance to use
+  /**
+   * Adds a {@link MapReduceDriver} instance (configured with a Mapper and a Reducer)
+   * to the end of the pipeline and returns the driver instance for fluent programming.
+   *
+   * @param m The {@link Mapper} instance for this stage.
+   * @param r The {@link Reducer} instance for this stage.
+   * @return this {@link PipelineMapReduceDriver} instance.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withMapReduce(Mapper m, Reducer r) {
     addMapReduce(m, r);
     return this;
   }
 
-  /** Add a Mapper and Reducer instance to the pipeline to use with this test driver
-   * using fluent style
-   * @param p The Mapper and Reducer instances to add to the pipeline
+  /**
+   * Adds a pre-configured {@link MapReduceDriver} instance to the end of the
+   * pipeline and returns the driver instance for fluent programming.
+   *
+   * @param p The {@link MapReduceDriver} instance to add.
+   * @return this {@link PipelineMapReduceDriver} instance.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withMapReduce(MapReduceDriver p) {
     addMapReduce(p);
@@ -95,26 +171,32 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * @return A copy of the list of Mapper and Reducer objects under test
+   * Returns an unmodifiable view of the list of {@link MapReduceDriver} instances
+   * that make up the pipeline.
+   *
+   * @return An unmodifiable list of {@link MapReduceDriver}s in the pipeline.
    */
   public List<MapReduceDriver> getMapReducePipeline() {
     return Collections.unmodifiableList(mapReducePipeline);
   }
 
   /**
-   * Adds an input to send to the mapper
-   * @param key
-   * @param val
+   * Adds an input key/value pair to be sent to the first Mapper in the pipeline.
+   *
+   * @param key The input key.
+   * @param val The input value.
    */
   public void addInput(K1 key, V1 val) {
     inputList.add(new Pair<K1, V1>(key, val));
   }
 
   /**
-   * Identical to addInput() but returns self for fluent programming style
-   * @param key
-   * @param val
-   * @return this
+   * Adds an input key/value pair to be sent to the first Mapper in the pipeline
+   * and returns the driver instance for fluent programming.
+   *
+   * @param key The input key.
+   * @param val The input value.
+   * @return this {@link PipelineMapReduceDriver} instance.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withInput(K1 key, V1 val) {
     addInput(key, val);
@@ -122,21 +204,25 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Adds an input to send to the Mapper
-   * @param input The (k, v) pair to add to the input list.
+   * Adds an input {@link Pair} to be sent to the first Mapper in the pipeline.
+   *
+   * @param input The (key, value) {@link Pair} to add to the input list.
+   * @throws IllegalArgumentException if the input Pair is null.
    */
   public void addInput(Pair<K1, V1> input) {
     if (null == input) {
       throw new IllegalArgumentException("Null input in addInput()");
     }
-
     inputList.add(input);
   }
 
   /**
-   * Identical to addInput() but returns self for fluent programming style
-   * @param input The (k, v) pair to add
-   * @return this
+   * Adds an input {@link Pair} to be sent to the first Mapper in the pipeline
+   * and returns the driver instance for fluent programming.
+   *
+   * @param input The (key, value) {@link Pair} to add.
+   * @return this {@link PipelineMapReduceDriver} instance.
+   * @throws IllegalArgumentException if the input Pair is null.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withInput(
       Pair<K1, V1> input) {
@@ -145,8 +231,11 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Adds an output (k, v) pair we expect from the Reducer
-   * @param outputRecord The (k, v) pair to add
+   * Adds an expected output (key, value) {@link Pair} from the final Reducer
+   * in the pipeline.
+   *
+   * @param outputRecord The (key, value) {@link Pair} to expect as output.
+   * @throws IllegalArgumentException if the outputRecord is null.
    */
   public void addOutput(Pair<K2, V2> outputRecord) {
     if (null != outputRecord) {
@@ -157,9 +246,12 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Works like addOutput(), but returns self for fluent style
-   * @param outputRecord
-   * @return this
+   * Adds an expected output (key, value) {@link Pair} from the final Reducer
+   * in the pipeline and returns the driver instance for fluent programming.
+   *
+   * @param outputRecord The (key, value) {@link Pair} to expect as output.
+   * @return this {@link PipelineMapReduceDriver} instance.
+   * @throws IllegalArgumentException if the outputRecord is null.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withOutput(
           Pair<K2, V2> outputRecord) {
@@ -168,19 +260,22 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Adds a (k, v) pair we expect as output from the Reducer
-   * @param key
-   * @param val
+   * Adds an expected output key/value pair from the final Reducer in the pipeline.
+   *
+   * @param key The expected output key.
+   * @param val The expected output value.
    */
   public void addOutput(K2 key, V2 val) {
     addOutput(new Pair<K2, V2>(key, val));
   }
 
   /**
-   * Functions like addOutput() but returns self for fluent programming style
-   * @param key
-   * @param val
-   * @return this
+   * Adds an expected output key/value pair from the final Reducer in the pipeline
+   * and returns the driver instance for fluent programming.
+   *
+   * @param key The expected output key.
+   * @param val The expected output value.
+   * @return this {@link PipelineMapReduceDriver} instance.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withOutput(K2 key, V2 val) {
     addOutput(key, val);
@@ -188,9 +283,19 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Expects an input of the form "key \t val"
-   * Forces the Mapper input types to Text.
-   * @param input A string of the form "key \t val". Trims any whitespace.
+   * Adds an input record from a tab-delimited string of the form "key \t val".
+   * This method forces the initial input key and value types of the pipeline
+   * (K1, V1) to {@link Text}.
+   * <p>
+   * Note: This method involves a type cast to {@code Pair<K1, V1>}. This is
+   * inherently not type-safe if K1 and V1 are not Text. This method is provided
+   * for convenience in simple test cases where Text input is common.
+   * If your pipeline's initial input types are not Text, use the
+   * {@link #addInput(Object, Object)} or {@link #addInput(Pair)} methods instead.
+   * </p>
+   *
+   * @param input A string of the form "key \t val". Leading/trailing whitespace is trimmed.
+   * @throws IllegalArgumentException if input is null or cannot be parsed.
    */
   public void addInputFromString(String input) {
     if (null == input) {
@@ -198,8 +303,9 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
     } else {
       Pair<Text, Text> inputPair = parseTabbedPair(input);
       if (null != inputPair) {
-        // I know this is not type-safe, but I don't
-        // know a better way to do this.
+        // This cast is not type-safe. It assumes K1 and V1 are Text.
+        // This is a known limitation for convenience in common Text-based scenarios.
+        // For other types, use addInput(K1, V1) or addInput(Pair<K1,V1>).
         addInput((Pair<K1, V1>) inputPair);
       } else {
         throw new IllegalArgumentException("Could not parse input pair in addInput");
@@ -208,9 +314,13 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Identical to addInputFromString, but with a fluent programming style
-   * @param input A string of the form "key \t val". Trims any whitespace.
-   * @return this
+   * Adds an input record from a tab-delimited string and returns the driver
+   * instance for fluent programming. Forces initial input types (K1, V1) to {@link Text}.
+   * See {@link #addInputFromString(String)} for details on type safety.
+   *
+   * @param input A string of the form "key \t val".
+   * @return this {@link PipelineMapReduceDriver} instance.
+   * @throws IllegalArgumentException if input is null or cannot be parsed.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withInputFromString(String input) {
     addInputFromString(input);
@@ -218,9 +328,19 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Expects an input of the form "key \t val"
-   * Forces the Reducer output types to Text.
-   * @param output A string of the form "key \t val". Trims any whitespace.
+   * Adds an expected output record from a tab-delimited string of the form "key \t val".
+   * This method forces the final output key and value types of the pipeline
+   * (K2, V2) to {@link Text}.
+   * <p>
+   * Note: This method involves a type cast to {@code Pair<K2, V2>}. This is
+   * inherently not type-safe if K2 and V2 are not Text. This method is provided
+   * for convenience in simple test cases where Text output is common.
+   * If your pipeline's final output types are not Text, use the
+   * {@link #addOutput(Object, Object)} or {@link #addOutput(Pair)} methods instead.
+   * </p>
+   *
+   * @param output A string of the form "key \t val". Leading/trailing whitespace is trimmed.
+   * @throws IllegalArgumentException if output is null or cannot be parsed.
    */
   public void addOutputFromString(String output) {
     if (null == output) {
@@ -228,8 +348,9 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
     } else {
       Pair<Text, Text> outputPair = parseTabbedPair(output);
       if (null != outputPair) {
-        // I know this is not type-safe,
-        // but I don't know a better way to do this.
+        // This cast is not type-safe. It assumes K2 and V2 are Text.
+        // This is a known limitation for convenience in common Text-based scenarios.
+        // For other types, use addOutput(K2, V2) or addOutput(Pair<K2,V2>).
         addOutput((Pair<K2, V2>) outputPair);
       } else {
         throw new IllegalArgumentException(
@@ -239,46 +360,78 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
   }
 
   /**
-   * Identical to addOutputFromString, but with a fluent programming style
-   * @param output A string of the form "key \t val". Trims any whitespace.
-   * @return this
+   * Adds an expected output record from a tab-delimited string and returns the driver
+   * instance for fluent programming. Forces final output types (K2, V2) to {@link Text}.
+   * See {@link #addOutputFromString(String)} for details on type safety.
+   *
+   * @param output A string of the form "key \t val".
+   * @return this {@link PipelineMapReduceDriver} instance.
+   * @throws IllegalArgumentException if output is null or cannot be parsed.
    */
   public PipelineMapReduceDriver<K1, V1, K2, V2> withOutputFromString(String output) {
     addOutputFromString(output);
     return this;
   }
 
+  /**
+   * Executes the entire pipeline of MapReduce jobs.
+   * The initial inputs are fed into the first {@link MapReduceDriver}. The outputs
+   * of that driver then become the inputs for the next driver in the pipeline,
+   * and so on.
+   *
+   * @return A list of (key, value) {@link Pair}s representing the final output
+   *         from the last {@link MapReduceDriver} in the pipeline.
+   * @throws IOException if any MapReduce job in the pipeline encounters an I/O error.
+   */
   public List<Pair<K2, V2>> run() throws IOException {
-    // inputs starts with the user-provided inputs.
-    List inputs = this.inputList;
+    // 'currentInputs' starts as the user-provided inputs for the first MR job.
+    List currentInputs = this.inputList;
 
-    if (mapReducePipeline.size() == 0) {
+    if (mapReducePipeline.isEmpty()) {
       LOG.warn("No Mapper or Reducer instances in pipeline; this is a trivial test.");
     }
 
-    if (inputs.size() == 0) {
-      LOG.warn("No inputs configured to send to MapReduce pipeline; this is a trivial test.");
+    if (currentInputs.isEmpty() && !mapReducePipeline.isEmpty()) {
+      LOG.warn("No inputs configured to send to MapReduce pipeline; this is a trivial test unless the first job generates data.");
     }
 
+    // Iterate through each MapReduce job in the pipeline
     for (MapReduceDriver driver : mapReducePipeline) {
+      // Propagate counters; each job contributes to the same set of counters.
       driver.setCounters(getCounters());
 
-      // Add the inputs from the user, or from the previous stage of the pipeline.
-      for (Object input : inputs) {
+      // Clear any inputs from a previous iteration of *this* driver instance
+      // if it were (incorrectly) reused in the pipeline list.
+      // This also handles the case where a driver might have its own input list.
+      driver.resetInput();
+
+
+      // Add the inputs from the user (for the first job) or
+      // from the output of the previous stage of the pipeline.
+      for (Object input : currentInputs) {
         driver.addInput((Pair) input);
       }
 
-      // Run the MapReduce "job". The output of this job becomes
-      // the input to the next job.
-      inputs = driver.run();
+      // Run the current MapReduce "job".
+      // The output of this job becomes the input to the next job.
+      currentInputs = driver.run();
     }
 
-    // The last list of values stored in "inputs" is actually the outputs.
-    // Unfortunately, due to the variable-length list of MR passes the user 
-    // can test, this is not type-safe.
-    return (List<Pair<K2, V2>>) inputs;
+    // After all jobs have run, 'currentInputs' now holds the final outputs
+    // from the last job in the pipeline.
+    // This cast is potentially unsafe if the pipeline's K2, V2 types do not
+    // match the actual output types of the last driver. The generic types
+    // of PipelineMapReduceDriver should align with the last driver's output.
+    return (List<Pair<K2, V2>>) currentInputs;
   }
 
+  /**
+   * Executes the pipeline and validates the final output against the expected outputs.
+   * This is the primary method for running a test case.
+   *
+   * @throws RuntimeException if an {@link IOException} occurs during execution
+   *                          or if the actual output does not match the expected output.
+   */
   @Override
   public void runTest() throws RuntimeException {
     List<Pair<K2, V2>> outputs = null;
@@ -289,7 +442,7 @@ public class PipelineMapReduceDriver<K1, V1, K2, V2>
     } catch (IOException ioe) {
       LOG.error("IOException: " + ioe.toString());
       LOG.debug("Setting success to false based on IOException");
-      throw new RuntimeException();
+      throw new RuntimeException(ioe); // Preserve the original exception
     }
   }
 }
